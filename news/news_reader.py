@@ -4,7 +4,7 @@ import os
 import feedparser
 from gtts import gTTS
 from bs4 import BeautifulSoup
-from random import shuffle
+import random
 from datetime import datetime
 
 # List of RSS feeds
@@ -40,9 +40,14 @@ def fetch_and_save_feed(feed, filename):
     tts = gTTS(text=text, lang='pt')
     tts.save(filename)
 
+def fisher_yates_shuffle(arr):
+    for i in range(len(arr) - 1, 0, -1):
+        j = random.randint(0, i)
+        arr[i], arr[j] = arr[j], arr[i]
+
 # Save the audio to a .mp3 file
 def save_audio_to_file(filename):
-    shuffle(feeds)  # Shuffle the feeds
+    fisher_yates_shuffle(feeds)  # Shuffle the feeds using Fisher-Yates algorithm
     text = ' '.join([f"Título: {entry.title}. Sumário: {clean_html(entry.summary) if 'summary' in entry else 'No summary available.'}" 
                      for feed in feeds for entry in feedparser.parse(feed['url']).entries[:10]])
     tts = gTTS(text=text, lang='pt')
