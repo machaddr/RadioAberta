@@ -54,10 +54,10 @@ def save_audio_to_file(filename):
     tts.save(filename)
 
 # Get current date and time
-current_time = datetime.now().strftime("%d_%m_%Y_%H_%M")
+current_time = datetime.now().strftime("%d_%m_%Y")
 
 # Fetch and save feeds with current date and time in filename
-output_mp3_file = f"/home/machaddr/Labs/RadioAberta/news/news_audio_{current_time}.mp3"
+output_mp3_file = f"news/news_audio_{current_time}.mp3"
 save_audio_to_file(output_mp3_file)
 
 # Clean up temporary files if any
