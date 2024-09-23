@@ -58,33 +58,60 @@
                     const currentHour = currentDate.getHours();
                     const currentDay = currentDate.getDay();
         
+                    // Function to stop any currently playing audio
+                    const stopCurrentAudio = () => {
+                        if (window.currentAudio) {
+                            window.currentAudio.stop();
+                        }
+                    };
+
                     // Check the current day and hour to display the current program
                     if (currentDay >= 1 && currentDay <= 5) { // Monday to Friday
                         if (currentHour >= 9 && currentHour < 10) {
                             currentProgram.textContent = PROGRAMA_DA_MANHA;
+                            stopCurrentAudio();
+                            window.currentAudio = playMusicaPortuguesa();
                         } else if (currentHour >= 10 && currentHour < 13) {
                             currentProgram.textContent = MUSICA_INTERNACIONAL;
+                            stopCurrentAudio();
+                            window.currentAudio = playMusicaInternacional();
                         } else if (currentHour >= 13 && currentHour < 14) {
                             currentProgram.textContent = NOTICIAS_E_ATUALIDADES;
+                            stopCurrentAudio();
+                            window.currentAudio = playNoticiasEAtualidades();
                         } else if (currentHour >= 14 && currentHour < 16) {
                             currentProgram.textContent = PROGRAMA_DA_TARDE;
+                            stopCurrentAudio();
+                            window.currentAudio = playMusicaInternacional();
                         } else {
                             currentProgram.textContent = ESTILO_LIVRE;
+                            stopCurrentAudio();
+                            window.currentAudio = playEstiloLivre();
                         }
                     } else if (currentDay === 6) { // Saturday
                         if (currentHour >= 10 && currentHour < 12) {
                             currentProgram.textContent = MUSICA_PORTUGUESA;
+                            stopCurrentAudio();
+                            window.currentAudio = playMusicaPortuguesa();
                         } else {
                             currentProgram.textContent = ESTILO_LIVRE;
+                            stopCurrentAudio();
+                            window.currentAudio = playEstiloLivre();
                         }
                     } else if (currentDay === 0) { // Sunday
                         if (currentHour >= 10 && currentHour < 12) {
                             currentProgram.textContent = PROGRAMA_LITERATURA;
+                            stopCurrentAudio();
+                            window.currentAudio = playProgramaLiteratura();
                         } else {
                             currentProgram.textContent = ESTILO_LIVRE;
+                            stopCurrentAudio();
+                            window.currentAudio = playEstiloLivre();
                         }
                     } else {
                         currentProgram.textContent = ESTILO_LIVRE;
+                        stopCurrentAudio();
+                        window.currentAudio = playEstiloLivre();
                     }
                 };
         
@@ -656,6 +683,262 @@
                 return array;
             }
 
+            // Function to play Noticias e Atualidades
+            function playNoticiasEAtualidades() {
+                // Get the current date and format it as "news_audio_%d_%m_%Y.mp3"
+                const currentDate = new Date();
+                const formattedDate = currentDate.toLocaleDateString('pt-PT', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                }).replace(/\//g, '_');
+                const newsfile = `news_audio_${formattedDate}.mp3`;
+            
+                // Fetch the news file
+                fetch('news/').then(response => response.text())
+                    .then(data => {
+                        const sound = new Howl({
+                            src: [`news/${newsfile}`],
+                            volume: 1,
+                            onloaderror: (id, error) => console.error('Error loading news file:', error),
+                            onplayerror: (id, error) => console.error('Error playing news file:', error),
+                        });
+            
+                        // Retrieve saved playback position from local storage
+                        const savedPosition = localStorage.getItem('playbackPosition');
+                        if (savedPosition) {
+                            sound.seek(parseFloat(savedPosition));
+                        }
+            
+                        // Play button
+                        const playButton = document.getElementById('playButton');
+                        playButton.addEventListener('click', () => {
+                            // Play the current music if it is not playing
+                            if (!sound.playing()) {
+                                sound.play();
+                                playButton.style.backgroundColor = 'green'; // Set background color to green
+                                pauseButton.style.backgroundColor = ''; // Remove background color
+                            }
+                        });
+
+                        // Pause button
+                        const pauseButton = document.getElementById('pauseButton');
+                        pauseButton.addEventListener('click', () => {
+                            // Pause the current music if it is playing
+                            if (sound.playing()) {
+                                sound.pause();
+                                // Save the current playback position to local storage
+                                localStorage.setItem('playbackPosition', sound.seek());
+                                playButton.style.backgroundColor = ''; // Remove background color
+                                pauseButton.style.backgroundColor = 'red'; // Set background color to red
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching news files:', error);
+                    });
+            }
+
+            // Function to play Música Internacional
+            function playMusicaInternacional() {
+                // Fetch all the music files in the "international_music/" folder
+                fetch('international_music/').then(response => response.text())
+                    .then(data => {
+                        // Parse the HTML response to extract the music file names
+                        const parser = new DOMParser();
+                        const htmlDoc = parser.parseFromString(data, 'text/html');
+                        const musicFiles = Array.from(htmlDoc.querySelectorAll('a[href$=".flac"]'))
+                            .map(a => a.href);
+
+                        // Shuffle the music files array randomly
+                        const shuffledMusicFiles = shuffleArray(musicFiles);
+
+                        let currentSoundIndex = 0;
+                        let sounds = [];
+
+                        // Function to load and play a music
+                        function loadAndPlaySound(index) {
+                            if (sounds[index]) {
+                                sounds[index].unload(); // Unload the current music
+                            }
+
+                            sounds[index] = new Howl({
+                                src: [musicFiles[index]],
+                                volume: 1,
+                                onloaderror: (id, error) => console.error('Error loading music file:', error),
+                                onplayerror: (id, error) => console.error('Error playing music file:', error),
+                                onend: () => {
+                                    // When the current music ends, load and play the next music
+                                    currentSoundIndex = (currentSoundIndex + 1) % musicFiles.length;
+                                    loadAndPlaySound(currentSoundIndex);
+                                    sounds[currentSoundIndex].play(); // Play the next music
+                                }
+                            });
+                        }
+
+                        // Play button
+                        const playButton = document.getElementById('playButton');
+                        playButton.addEventListener('click', () => {
+                            // Play the current music if it is not playing
+                            if (!sounds[currentSoundIndex]) {
+                                loadAndPlaySound(currentSoundIndex);
+                            }
+                            
+                            if (!sounds[currentSoundIndex].playing()) {
+                                sounds[currentSoundIndex].play(); // Play the current music if it is paused
+                                playButton.style.backgroundColor = 'green'; // Set background color to green
+                                pauseButton.style.backgroundColor = ''; // Remove background color
+                            }
+                        });
+
+                        // Pause button
+                        const pauseButton = document.getElementById('pauseButton');
+                        pauseButton.addEventListener('click', () => {
+                            // Pause the current music if it is playing
+                            if (sounds[currentSoundIndex].playing()) {
+                                sounds[currentSoundIndex].pause();
+                                playButton.style.backgroundColor = ''; // Remove background color
+                                pauseButton.style.backgroundColor = 'red'; // Set background color to red
+                            }
+                        });
+
+                        // Create a single paragraph element to display the current song
+                        const currentSong = document.createElement('p');
+                        currentSong.style.fontWeight = 'bold';
+                        currentSong.style.marginTop = '20px';
+                        currentSong.style.textAlign = 'center'; // Center the message
+                        document.querySelector('header').appendChild(currentSong);
+
+                        // Function to update the current song being played
+                        const updateCurrentSong = () => {
+                            // Check if there is a current sound playing
+                            if (sounds[currentSoundIndex]) {
+                                // Get the current song name and remove the track number and file extension
+                                const currentSongName = decodeURIComponent(musicFiles[currentSoundIndex].split('/').pop());
+                                currentSong.textContent = currentSongName.replace(/^\d{2}[\.-]/, '').replace(/\.flac$/, '');
+                                    
+                                // Display the current song duration
+                                const duration = Math.round(sounds[currentSoundIndex].duration());
+                                const currentTime = Math.round(sounds[currentSoundIndex].seek());
+                                currentSong.textContent += ` (${Math.floor(currentTime / 60)}:${('0' + (currentTime % 60)).slice(-2)}/${Math.floor(duration / 60)}:${('0' + (duration % 60)).slice(-2)})`;
+
+                                // Highlight the current song being played
+                                currentSong.style.color = 'grey'; // Set the text color to grey
+                            } else {
+                                currentSong.textContent = '';
+                            }
+                        };
+                        // Update the current song every second
+                        setInterval(updateCurrentSong, 1000);
+
+                    })
+                    .catch(error => {
+                        console.error('Error fetching music files:', error);
+                    });
+            }
+
+            // Function to play Música Portuguesa
+            function playMusicaPortuguesa() {
+                // Fetch all the music files in the "portuguese_music/" folder
+                fetch('portuguese_music/').then(response => response.text())
+                    .then(data => {
+                        // Parse the HTML response to extract the music file names
+                        const parser = new DOMParser();
+                        const htmlDoc = parser.parseFromString(data, 'text/html');
+                        const musicFiles = Array.from(htmlDoc.querySelectorAll('a[href$=".flac"]'))
+                            .map(a => a.href);
+
+                        // Shuffle the music files array randomly
+                        const shuffledMusicFiles = shuffleArray(musicFiles);
+
+                        let currentSoundIndex = 0;
+                        let sounds = [];
+
+                        // Function to load and play a music
+                        function loadAndPlaySound(index) {
+                            if (sounds[index]) {
+                                sounds[index].unload(); // Unload the current music
+                            }
+
+                            sounds[index] = new Howl({
+                                src: [musicFiles[index]],
+                                volume: 1,
+                                onloaderror: (id, error) => console.error('Error loading music file:', error),
+                                onplayerror: (id, error) => console.error('Error playing music file:', error),
+                                onend: () => {
+                                    // When the current music ends, load and play the next music
+                                    currentSoundIndex = (currentSoundIndex + 1) % musicFiles.length;
+                                    loadAndPlaySound(currentSoundIndex);
+                                    sounds[currentSoundIndex].play(); // Play the next music
+                                }
+                            });
+                        }
+
+                        // Play button
+                        const playButton = document.getElementById('playButton');
+                        playButton.addEventListener('click', () => {
+                            // Play the current music if it is not playing
+                            if (!sounds[currentSoundIndex]) {
+                                loadAndPlaySound(currentSoundIndex);
+                            }
+                            
+                            if (sounds[currentSoundIndex].playing()) {
+                                playButton.style.backgroundColor = 'green'; // Remove background color
+                                pauseButton.style.backgroundColor = ''; // Remove background color
+                            } else {
+                                sounds[currentSoundIndex].play(); // Play the current music if it is paused
+                                playButton.style.backgroundColor = 'green'; // Set background color to green
+                                pauseButton.style.backgroundColor = ''; // Remove background color
+                            }
+                        });
+
+                        // Pause button
+                        const pauseButton = document.getElementById('pauseButton');
+                        pauseButton.addEventListener('click', () => {
+                            // Pause the current music if it is playing
+                            if (sounds[currentSoundIndex].playing()) {
+                                sounds[currentSoundIndex].pause();
+                            }
+
+                            playButton.style.backgroundColor = ''; // Remove background color
+                            pauseButton.style.backgroundColor = 'red'; // Set background color to red
+                        });
+
+                        // Create a single paragraph element to display the current song
+                        const currentSong = document.createElement('p');
+                        currentSong.style.fontWeight = 'bold';
+                        currentSong.style.marginTop = '20px';
+                        currentSong.style.textAlign = 'center'; // Center the message
+                        document.querySelector('header').appendChild(currentSong);
+
+                        // Function to update the current song being played
+                        const updateCurrentSong = () => {
+                            // Check if there is a current sound playing
+                            if (sounds[currentSoundIndex]) {
+                                // Get the current song name and remove the track number and file extension
+                                const currentSongName = decodeURIComponent(musicFiles[currentSoundIndex].split('/').pop());
+                                currentSong.textContent = currentSongName.replace(/^\d{2}[\.-]/, '').replace(/\.flac$/, '');
+                                    
+                                // Display the current song duration
+                                const duration = Math.round(sounds[currentSoundIndex].duration());
+                                const currentTime = Math.round(sounds[currentSoundIndex].seek());
+                                currentSong.textContent += ` (${Math.floor(currentTime / 60)}:${('0' + (currentTime % 60)).slice(-2)}/${Math.floor(duration / 60)}:${('0' + (duration % 60)).slice(-2)})`;
+
+                                // Highlight the current song being played
+                                currentSong.style.color = 'grey'; // Set the text color to grey
+                            } else {
+                                currentSong.textContent = '';
+                            }
+                        };
+                        // Update the current song every second
+                        setInterval(updateCurrentSong, 1000);
+
+                    })
+                    .catch(error => {
+                        console.error('Error fetching music files:', error);
+                    });
+            }
+
             // Function to play all the music from the portuguese_music/ folder randomly
             function playEstiloLivre() {
                 // Fetch all the music files in the "portuguese_music/" and "international_music/" folders
@@ -766,9 +1049,6 @@
                     console.error('Error fetching music files:', error);
                 });
             }
-
-            // Call the function
-            playEstiloLivre();
         </script>
         <footer>
             <center>
